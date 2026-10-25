@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>自动化测试平台 · Web 控制台</title>
+<style>
+  :root {
+    --bg: #0b1220; --panel: #111a2b; --panel2: #0f1729;
+    --border: #223050; --text: #dbe4f5; --muted: #7c8db5;
+    --accent: #3b82f6; --ok: #22c55e; --warn: #f59e0b; --err: #ef4444;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font: 14px/1.6 system-ui, "Microsoft YaHei", sans-serif; }
+  header { display: flex; align-items: center; justify-content: space-between; padding: 14px 22px;
+           border-bottom: 1px solid var(--border); background: var(--panel); }
+  header h1 { font-size: 17px; font-weight: 600; }
+  header .sub { color: var(--muted); font-size: 12px; margin-left: 10px; }
+  .statusbar { display: flex; gap: 24px; align-items: center; padding: 10px 22px;
+               border-bottom: 1px solid var(--border); background: var(--panel2); font-size: 13px; }
+  .statusbar .label { color: var(--muted); }
+  .badge { padding: 2px 10px; border-radius: 10px; font-size: 12px; background: var(--panel); border: 1px solid var(--border); }
+  .badge.ok { color: var(--ok); border-color: var(--ok); }
+  .badge.warn { color: var(--warn); border-color: var(--warn); }
+  .badge.err { color: var(--err); border-color: var(--err); }
+  button { background: var(--accent); color: #fff; border: none; border-radius: 6px; padding: 7px 16px;
+           font-size: 13px; cursor: pointer; }
+  button:hover { opacity: .9; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  button.ghost { background: transparent; border: 1px solid var(--border); color: var(--text); }
+  button.warnbtn { background: var(--warn); }
+  nav { display: flex; gap: 4px; padding: 12px 22px 0; }
+  nav button { background: transparent; border: 1px solid transparent; color: var(--muted); padding: 8px 18px; }
+  nav button.active { color: var(--text); border-color: var(--border); background: var(--panel); }
+  main { padding: 18px 22px; }
+  .panel { display: none; }
+  .panel.active { display: block; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+  .card h2 { font-size: 15px; margin-bottom: 12px; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
+  input[type=text], textarea { width: 100%; background: var(--panel2); color: var(--text);
+          border: 1px solid var(--border); border-radius: 6px; padding: 9px 12px; font-size: 13px; font-family: inherit; }
+  textarea { min-height: 84px; resize: vertical; }
+  input[type=text] { max-width: 420px; }
+  pre { background: #0a0f1c; border: 1px solid var(--border); border-radius: 8px; padding: 12px;
+        font: 12px/1.55 Consolas, Menlo, monospace; white-space: pre-wrap; word-break: break-all;
+        max-height: 420px; overflow: auto; }
+  .muted { color: var(--muted); font-size: 12px; }
+  .ok-text { color: var(--ok); } .err-text { color: var(--err); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 500; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 50; padding: 24px; }
+  .modal.open { display: flex; flex-direction: column; }
+  .modal .mhead { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .modal .mbox { background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+                 padding: 14px; flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .modal iframe { flex: 1; width: 100%; border: none; background: #fff; border-radius: 6px; }
+  .modal pre { flex: 1; max-height: none; }
+  .hint { color: var(--muted); font-size: 12px; margin-top: 6px; }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>自动化测试平台 <span class="sub">Web 控制台 · 阶段 0-4</span></h1>
+  </div>
+  <button class="ghost" onclick="refreshStatus()">刷新状态</button>
+</header>
+
+<div class="statusbar">
+  <span><span class="label">Mock 服务：</span><span id="mockStatus" class="badge warn">检查中</span></span>
+  <button id="mockToggle" class="warnbtn" onclick="toggleMock()">启动 Mock</button>
+  <span><span class="label">BASE_URL：</span><span id="baseUrl">-</span></span>
+  <span><span class="label">DeepSeek：</span><span id="aiKey" class="badge warn">检查中</span></span>
+</div>
+
+<nav>
+  <button class="active" data-tab="run" onclick="switchTab('run')">测试运行</button>
+  <button data-tab="ai" onclick="switchTab('ai')">AI 助手</button>
+  <button data-tab="reports" onclick="switchTab('reports')">报告中心</button>
+</nav>
+
+<main>
+  <!-- 测试运行 -->
+  <section id="tab-run" class="panel active">
+    <div class="card">
+      <h2>运行测试</h2>
+      <div class="row">
+        <input type="text" id="runTarget" placeholder="可选：指定测试文件/目录（留空 = 跑全部）">
+        <button onclick="runTests()">运行 pytest</button>
+      </div>
+      <div class="hint">测试前先确认 Mock 服务已启动（右上角状态）。报告会生成到 reports/report.html。</div>
+      <pre id="runOutput">等待运行...</pre>
+    </div>
+  </section>
+
+  <!-- AI 助手 -->
+  <section id="tab-ai" class="panel">
+    <div class="card">
+      <h2>AI 助手（DeepSeek）</h2>
+      <div class="row">
+        <button class="ghost" data-mode="generate" onclick="switchMode('generate')">生成用例</button>
+        <button class="ghost" data-mode="diagnose" onclick="switchMode('diagnose')">诊断失败</button>
+        <button class="ghost" data-mode="summary" onclick="switchMode('summary')">测试摘要</button>
+        <button class="ghost" data-mode="agent" onclick="switchMode('agent')">Agent 闭环</button>
+      </div>
+
+      <!-- 生成用例 -->
+      <div class="mode" id="mode-generate">
+        <div class="row"><textarea id="genDesc" placeholder="描述你想要的用例，例如：写3个用例：健康检查、用户列表、echo 回显"></textarea></div>
+        <button onclick="doGenerate()">生成并执行</button>
+        <div class="hint">生成的用例保存到 tests/generated/，并自动执行验证。</div>
+      </div>
+
+      <!-- 诊断失败 -->
+      <div class="mode" id="mode-diagnose" style="display:none">
+        <div class="row"><input type="text" id="diagTarget" placeholder="测试文件路径，如 tests/generated/test_xxx.py"></div>
+        <button onclick="doDiagnose()">执行并诊断</button>
+        <div class="hint">先跑该文件；失败则交给 DeepSeek 分析根因，报告存 reports/diagnosis_*.md。</div>
+      </div>
+
+      <!-- 测试摘要 -->
+      <div class="mode" id="mode-summary" style="display:none">
+        <div class="row"><input type="text" id="sumTarget" placeholder="可选：指定范围（留空 = 全部测试）"></div>
+        <button onclick="doSummary()">跑测试并写摘要</button>
+        <div class="hint">摘要报告存 reports/summary_*.md。</div>
+      </div>
+
+      <!-- Agent 闭环 -->
+      <div class="mode" id="mode-agent" style="display:none">
+        <div class="row"><textarea id="agentDesc" placeholder="用例需求描述（与 target 二选一）"></textarea></div>
+        <div class="row"><input type="text" id="agentTarget" placeholder="或：现有测试文件路径（与描述二选一）"></div>
+        <button onclick="doAgent()">启动 Agent 闭环（最多 3 轮）</button>
+        <div class="hint">生成/读取用例 → 执行 → 失败则 AI 重写 → 回归，直到通过或达到上限。报告存 reports/agent_*.md。</div>
+      </div>
+
+      <pre id="aiOutput" style="margin-top:12px">等待操作...</pre>
+    </div>
+  </section>
+
+  <!-- 报告中心 -->
+  <section id="tab-reports" class="panel">
+    <div class="card">
+      <h2>报告列表 <button class="ghost" style="margin-left:10px" onclick="loadReports()">刷新</button></h2>
+      <table>
+        <thead><tr><th>文件</th><th>类型</th><th>修改时间</th><th>大小</th><th>操作</th></tr></thead>
+        <tbody id="reportRows"><tr><td colspan="5" class="muted">加载中...</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<div class="modal" id="modal">
+  <div class="mbox">
+    <div class="mhead">
+      <strong id="modalTitle">查看</strong>
+      <button class="ghost" onclick="closeModal()">关闭</button>
+    </div>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
+<script>
+  function $(s) { return document.querySelector(s); }
+  function out(pre, text, append) {
+    if (append) { pre.textContent += (text || "") + "\n"; }
+    else { pre.textContent = text || "（无输出）"; }
+  }
+  async function api(path, body) {
+    const opt = body ? { method: "POST", headers: { "Content-Type": "application/json" },
+                         body: JSON.stringify(body) } : {};
+    const r = await fetch(path, opt);
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.error || ("HTTP " + r.status));
+    return data;
+  }
+
+  async function refreshStatus() {
+    try {
+      const s = await api("/api/status");
+      const ms = $("#mockStatus");
+      ms.textContent = s.mock_running ? "运行中" : "已停止";
+      ms.className = "badge " + (s.mock_running ? "ok" : "warn");
+      $("#mockToggle").textContent = s.mock_running ? "停止 Mock" : "启动 Mock";
+      $("#baseUrl").textContent = s.base_url;
+      const ak = $("#aiKey");
+      ak.textContent = s.deepseek_configured ? "已配置" : "未配置";
+      ak.className = "badge " + (s.deepseek_configured ? "ok" : "warn");
+    } catch (e) {
+      $("#mockStatus").textContent = "服务异常";
+      $("#mockStatus").className = "badge err";
+      alert("无法连接控制台服务：" + e.message);
+    }
+  }
+
+  async function toggleMock() {
+    const btn = $("#mockToggle");
+    btn.disabled = true;
+    try {
+      const running = $("#mockStatus").textContent === "运行中";
+      const r = await api(running ? "/api/mock/stop" : "/api/mock/start", {});
+      $("#mockStatus").textContent = r.mock_running ? "运行中" : "已停止";
+      $("#mockStatus").className = "badge " + (r.mock_running ? "ok" : "warn");
+      $("#mockToggle").textContent = r.mock_running ? "停止 Mock" : "启动 Mock";
+    } catch (e) { alert("操作失败：" + e.message); }
+    btn.disabled = false;
+  }
+
+  async function runTests() {
+    const pre = $("#runOutput");
+    const btn = event.target; btn.disabled = true;
+    out(pre, "运行中...");
+    try {
+      const r = await api("/api/run-tests", { target: $("#runTarget").value.trim() });
+      out(pre, r.output, true);
+      out(pre, "退出码: " + r.exit_code, true);
+      if (r.report) out(pre, "HTML 报告: " + r.report, true);
+    } catch (e) { out(pre, "错误：" + e.message, true); }
+    btn.disabled = false;
+  }
+
+  function switchTab(name) {
+    document.querySelectorAll("nav button").forEach(b => b.classList.toggle("active", b.dataset.tab === name));
+    ["run", "ai", "reports"].forEach(n => $("#tab-" + n).classList.toggle("active", n === name));
+    if (name === "reports") loadReports();
+  }
+
+  function switchMode(mode) {
+    document.querySelectorAll("nav [data-mode]").forEach(b => b.classList.toggle("active", b.dataset.mode === mode));
+    ["generate", "diagnose", "summary", "agent"].forEach(m => {
+      $("#mode-" + m).style.display = m === mode ? "" : "none";
+    });
+    $("#aiOutput").textContent = "等待操作...";
+  }
+
+  async function doGenerate() {
+    const desc = $("#genDesc").value.trim();
+    const pre = $("#aiOutput");
+    if (!desc) { out(pre, "请先填写用例需求描述。"); return; }
+    out(pre, "正在生成并执行...");
+    try {
+      const r = await api("/api/generate", { description: desc });
+      out(pre, "已生成: " + r.path + "\n" + r.output + "\n退出码: " + r.exit_code);
+    } catch (e) { out(pre, "错误：" + e.message); }
+  }
+
+  async function doDiagnose() {
+    const target = $("#diagTarget").value.trim();
+    const pre = $("#aiOutput");
+    if (!target) { out(pre, "请填写测试文件路径。"); return; }
+    out(pre, "正在执行并诊断...");
+    try {
+      const r = await api("/api/diagnose", { target });
+      if (r.analysis) out(pre, r.analysis + "\n\n退出码: " + r.exit_code);
+      if (r.report) out(pre, "\n诊断报告: " + r.report, true);
+    } catch (e) { out(pre, "错误：" + e.message); }
+  }
+
+  async function doSummary() {
+    const pre = $("#aiOutput");
+    out(pre, "正在运行测试并写摘要...");
+    try {
+      const r = await api("/api/summary", { target: $("#sumTarget").value.trim() });
+      out(pre, r.summary + "\n\n退出码: " + r.exit_code + "\n摘要报告: " + r.report);
+    } catch (e) { out(pre, "错误：" + e.message); }
+  }
+
+  async function doAgent() {
+    const desc = $("#agentDesc").value.trim();
+    const target = $("#agentTarget").value.trim();
+    const pre = $("#aiOutput");
+    if (!desc && !target) { out(pre, "请填写用例描述或目标文件（二选一）。"); return; }
+    out(pre, "Agent 闭环启动...");
+    try {
+      const r = await api("/api/agent", { description: desc, target });
+      let lines = "";
+      r.history.forEach(h => {
+        lines += "第 " + h.attempt + " 轮：" + (h.passed ? "通过" : "失败") + (h.fix_note ? " -> " + h.fix_note : "") + "\n";
+      });
+      out(pre, lines + "最终结果：" + (r.passed ? "全部通过" : "未通过") + "\n闭环报告: " + r.report);
+    } catch (e) { out(pre, "错误：" + e.message); }
+  }
+
+  async function loadReports() {
+    const tb = $("#reportRows");
+    tb.innerHTML = '<tr><td colspan="5" class="muted">加载中...</td></tr>';
+    try {
+      const r = await api("/api/reports");
+      if (!r.items.length) { tb.innerHTML = '<tr><td colspan="5" class="muted">暂无报告（跑一次测试或 AI 操作后出现）</td></tr>'; return; }
+      tb.innerHTML = "";
+      r.items.forEach(item => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = "<td>" + item.name + "</td><td>" + item.kind +
+          "</td><td>" + item.modified + "</td><td>" + item.size + " B</td>" +
+          '<td><a href="javascript:void(0)" onclick="viewReport(\'' + item.name + '\',\'' + item.kind + '\')">查看</a></td>';
+        tb.appendChild(tr);
+      });
+    } catch (e) {
+      tb.innerHTML = '<tr><td colspan="5" class="muted">加载失败：' + e.message + "</td></tr>";
+    }
+  }
+
+  async function viewReport(name, kind) {
+    $("#modalTitle").textContent = name;
+    const body = $("#modalBody");
+    if (kind === "html") {
+      body.innerHTML = '<iframe src="/reports/' + encodeURIComponent(name) + '"></iframe>';
+    } else {
+      const r = await fetch("/reports/" + encodeURIComponent(name));
+      const text = await r.text();
+      body.innerHTML = "<pre>" + text.replace(/&/g, "&amp;").replace(/</g, "&lt;") + "</pre>";
+    }
+    $("#modal").classList.add("open");
+  }
+
+  function closeModal() { $("#modal").classList.remove("open"); $("#modalBody").innerHTML = ""; }
+  document.addEventListener("keydown", e => { if (e.key === "Escape") closeModal(); });
+
+  refreshStatus();
+</script>
+</body>
+</html>
