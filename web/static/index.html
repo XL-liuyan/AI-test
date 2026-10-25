@@ -157,7 +157,10 @@
   <div class="mbox">
     <div class="mhead">
       <strong id="modalTitle">查看</strong>
-      <button class="ghost" onclick="closeModal()">关闭</button>
+      <div>
+        <button class="ghost" id="modalOpenWin" onclick="openModalWin()">新窗口打开</button>
+        <button class="ghost" onclick="closeModal()">关闭</button>
+      </div>
     </div>
     <div id="modalBody"></div>
   </div>
@@ -295,7 +298,8 @@
         const tr = document.createElement("tr");
         tr.innerHTML = "<td>" + item.name + "</td><td>" + item.kind +
           "</td><td>" + item.modified + "</td><td>" + item.size + " B</td>" +
-          '<td><a href="javascript:void(0)" onclick="viewReport(\'' + item.name + '\',\'' + item.kind + '\')">查看</a></td>';
+          '<td><a href="javascript:void(0)" onclick="viewReport(\'' + item.name + '\',\'' + item.kind + '\')">查看</a>' +
+          '<a href="/reports/' + encodeURIComponent(item.name) + '" target="_blank" style="margin-left:12px">新窗口</a></td>';
         tb.appendChild(tr);
       });
     } catch (e) {
@@ -303,8 +307,12 @@
     }
   }
 
+  let _modalUrl = "";
+  function openModalWin() { if (_modalUrl) window.open(_modalUrl, "_blank"); }
+
   async function viewReport(name, kind) {
     $("#modalTitle").textContent = name;
+    _modalUrl = "/reports/" + encodeURIComponent(name);
     const body = $("#modalBody");
     if (kind === "html") {
       body.innerHTML = '<iframe src="/reports/' + encodeURIComponent(name) + '"></iframe>';

@@ -225,8 +225,17 @@ class Handler(BaseHTTPRequestHandler):
             if not str(target).startswith(str(REPORTS_DIR.resolve())) or not target.is_file():
                 self._text(404, "not found")
                 return
-            ctype = "text/html; charset=utf-8" if target.suffix == ".html" else "text/markdown; charset=utf-8"
-            self._send_bytes(200, target.read_bytes(), ctype)
+            if target.suffix == ".html":
+                # 报告在控制台内嵌预览时放大（zoom 1.3，Chromium 内核支持）
+                raw = target.read_bytes()
+                injected = (
+                    b'<style>body{zoom:1.3}@media(max-width:900px){body{zoom:1.15}}</style>'
+                )
+                if b"<head>" in raw:
+                    raw = raw.replace(b"<head>", b"<head>" + injected, 1)
+                self._send_bytes(200, raw, "text/html; charset=utf-8")
+            else:
+                self._send_bytes(200, target.read_bytes(), "text/markdown; charset=utf-8")
         else:
             self._text(404, "not found")
 
