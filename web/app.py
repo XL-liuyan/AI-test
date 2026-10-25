@@ -9,6 +9,7 @@
 """
 import json
 import os
+import re
 import subprocess
 import sys
 import threading
@@ -167,8 +168,25 @@ def _list_reports() -> list[dict]:
     return items
 
 
+def _extract_case_titles(code: str) -> list[dict]:
+    """从测试文件提取用例编号与标题（用于用例库展示）。
+
+    优先取 docstring 的 [用例编号]/[用例标题]；没有则退回函数名。
+    """
+    items = []
+    for m in re.finditer(r"def\s+(test_\w+)\s*\([^)]*\):\s*(?:\"\"\"(.*?)\"\"\")?", code, re.S):
+        fname, doc = m.group(1), (m.group(2) or "")
+        no = re.search(r"\[用例编号\]\s*(\S+)", doc)
+        title = re.search(r"\[用例标题\]\s*(.+)", doc)
+        items.append({
+            "no": no.group(1).strip() if no else "-",
+            "title": title.group(1).strip() if title else fname,
+        })
+    return items
+
+
 def _list_test_files() -> list[dict]:
-    """列出 tests/ 下所有测试文件（含 AI 生成的 tests/generated/）。"""
+    """列出 tests/ 下所有测试文件（含 AI 生成的 tests/generated/），带用例标题。"""
     items = []
     tests_dir = PROJECT_ROOT / "tests"
     if tests_dir.exists():
@@ -176,10 +194,16 @@ def _list_test_files() -> list[dict]:
             if "__pycache__" in f.parts:
                 continue
             st = f.stat()
+            try:
+                cases = _extract_case_titles(f.read_text(encoding="utf-8"))
+            except Exception:
+                cases = []
             items.append({
                 "path": str(f.relative_to(PROJECT_ROOT)).replace("\\", "/"),
                 "size": st.st_size,
                 "modified": datetime.fromtimestamp(st.st_mtime).strftime("%Y-%m-%d %H:%M:%S"),
+                "cases": cases,
+                "case_count": len(cases),
             })
     return items
 
