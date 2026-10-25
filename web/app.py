@@ -166,6 +166,23 @@ def _list_reports() -> list[dict]:
     return items
 
 
+def _list_test_files() -> list[dict]:
+    """列出 tests/ 下所有测试文件（含 AI 生成的 tests/generated/）。"""
+    items = []
+    tests_dir = PROJECT_ROOT / "tests"
+    if tests_dir.exists():
+        for f in sorted(tests_dir.rglob("*.py")):
+            if "__pycache__" in f.parts:
+                continue
+            st = f.stat()
+            items.append({
+                "path": str(f.relative_to(PROJECT_ROOT)).replace("\\", "/"),
+                "size": st.st_size,
+                "modified": datetime.fromtimestamp(st.st_mtime).strftime("%Y-%m-%d %H:%M:%S"),
+            })
+    return items
+
+
 # ---------- HTTP ----------
 
 class Handler(BaseHTTPRequestHandler):
@@ -219,6 +236,8 @@ class Handler(BaseHTTPRequestHandler):
             })
         elif p == "/api/reports":
             self._json(200, {"items": _list_reports()})
+        elif p == "/api/tests":
+            self._json(200, {"items": _list_test_files()})
         elif p.startswith("/reports/"):
             name = urllib.parse.unquote(p[len("/reports/"):])
             target = (REPORTS_DIR / name).resolve()
@@ -236,6 +255,14 @@ class Handler(BaseHTTPRequestHandler):
                 self._send_bytes(200, raw, "text/html; charset=utf-8")
             else:
                 self._send_bytes(200, target.read_bytes(), "text/markdown; charset=utf-8")
+        elif p.startswith("/tests/"):
+            rel = urllib.parse.unquote(p[len("/tests/"):])
+            target = (PROJECT_ROOT / rel).resolve()
+            tests_dir = (PROJECT_ROOT / "tests").resolve()
+            if not str(target).startswith(str(tests_dir)) or not target.is_file():
+                self._text(404, "not found")
+                return
+            self._send_bytes(200, target.read_bytes(), "text/plain; charset=utf-8")
         else:
             self._text(404, "not found")
 

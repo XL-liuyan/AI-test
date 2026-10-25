@@ -80,6 +80,7 @@
 <nav>
   <button class="active" data-tab="run" onclick="switchTab('run')">测试运行</button>
   <button data-tab="ai" onclick="switchTab('ai')">AI 助手</button>
+  <button data-tab="tests" onclick="switchTab('tests')">用例库</button>
   <button data-tab="reports" onclick="switchTab('reports')">报告中心</button>
 </nav>
 
@@ -138,6 +139,18 @@
       </div>
 
       <pre id="aiOutput" style="margin-top:12px">等待操作...</pre>
+    </div>
+  </section>
+
+  <!-- 用例库 -->
+  <section id="tab-tests" class="panel">
+    <div class="card">
+      <h2>测试用例库 <button class="ghost" style="margin-left:10px" onclick="loadTests()">刷新</button></h2>
+      <div class="hint">全部测试文件（含 AI 生成的 tests/generated/）。点"查看源码"看代码；"新窗口"全宽阅读。想跑某个文件：测试运行栏填它的路径。</div>
+      <table>
+        <thead><tr><th>文件（相对路径）</th><th>大小</th><th>修改时间</th><th>操作</th></tr></thead>
+        <tbody id="testRows"><tr><td colspan="4" class="muted">加载中...</td></tr></tbody>
+      </table>
     </div>
   </section>
 
@@ -227,7 +240,8 @@
 
   function switchTab(name) {
     document.querySelectorAll("nav button").forEach(b => b.classList.toggle("active", b.dataset.tab === name));
-    ["run", "ai", "reports"].forEach(n => $("#tab-" + n).classList.toggle("active", n === name));
+    ["run", "ai", "tests", "reports"].forEach(n => $("#tab-" + n).classList.toggle("active", n === name));
+    if (name === "tests") loadTests();
     if (name === "reports") loadReports();
   }
 
@@ -285,6 +299,34 @@
       });
       out(pre, lines + "最终结果：" + (r.passed ? "全部通过" : "未通过") + "\n闭环报告: " + r.report);
     } catch (e) { out(pre, "错误：" + e.message); }
+  }
+
+  async function loadTests() {
+    const tb = $("#testRows");
+    tb.innerHTML = '<tr><td colspan="4" class="muted">加载中...</td></tr>';
+    try {
+      const r = await api("/api/tests");
+      if (!r.items.length) { tb.innerHTML = '<tr><td colspan="4" class="muted">暂无测试文件</td></tr>'; return; }
+      tb.innerHTML = "";
+      r.items.forEach(item => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = "<td>" + item.path + "</td><td>" + item.size + " B</td><td>" + item.modified + "</td>" +
+          '<td><a href="javascript:void(0)" onclick="viewTest(\'' + item.path + '\')">查看源码</a>' +
+          '<a href="/tests/' + encodeURIComponent(item.path) + '" target="_blank" style="margin-left:12px">新窗口</a></td>';
+        tb.appendChild(tr);
+      });
+    } catch (e) {
+      tb.innerHTML = '<tr><td colspan="4" class="muted">加载失败：' + e.message + "</td></tr>";
+    }
+  }
+
+  async function viewTest(path) {
+    $("#modalTitle").textContent = path;
+    const body = $("#modalBody");
+    const r = await fetch("/tests/" + encodeURIComponent(path));
+    const text = await r.text();
+    body.innerHTML = "<pre>" + text.replace(/&/g, "&amp;").replace(/</g, "&lt;") + "</pre>";
+    $("#modal").classList.add("open");
   }
 
   async function loadReports() {
