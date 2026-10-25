@@ -62,6 +62,8 @@ python -m venv .venv
 
 需要环境变量 `DEEPSEEK_API_KEY`（DeepSeek 平台注册后按量付费，成本极低）。
 
+生成的用例按正规格式输出：代码 docstring 含规范用例元素（用例编号 / 用例标题 / 前置条件 / 测试步骤 / 预期结果），并同步生成 `reports/testcases_*.md` 用例说明文档——可在 Web 控制台「报告中心」直接查看，也可作为交付给业务方的用例文档。
+
 ## Agent 闭环
 
 ```bash

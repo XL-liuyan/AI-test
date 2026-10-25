@@ -260,7 +260,7 @@
     out(pre, "正在生成并执行...");
     try {
       const r = await api("/api/generate", { description: desc });
-      out(pre, "已生成: " + r.path + "\n" + r.output + "\n退出码: " + r.exit_code);
+      out(pre, "已生成: " + r.path + (r.testcase_doc ? "\n用例文档: " + r.testcase_doc : "") + "\n" + r.output + "\n退出码: " + r.exit_code);
     } catch (e) { out(pre, "错误：" + e.message); }
   }
 

@@ -30,8 +30,9 @@ def cmd_generate(description: list[str]) -> int:
         description = [input("请输入用例需求描述：").strip()]
     desc = description[0]
     print(f"正在让 DeepSeek 生成用例：{desc}")
-    path = generate_tests(desc)
+    path, doc = generate_tests(desc)
     print(f"已生成: {path}")
+    print(f"用例文档: {doc}")
     code, output = run_pytest(str(path))
     _show_run(code, output)
     return 0 if code == 0 else 1

@@ -40,7 +40,7 @@ def run_agent(target: str = "", task_desc: str = "", max_attempts: int = 3) -> d
     else:
         if not task_desc:
             raise ValueError("agent 模式需要提供用例描述或现有测试文件路径")
-        path = generate_tests(task_desc)
+        path, _ = generate_tests(task_desc)
         created_by_ai = True
 
     history: list[dict] = []

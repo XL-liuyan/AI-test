@@ -103,10 +103,11 @@ def _run_tests(target: str = "") -> dict:
 
 
 def _generate(description: str) -> dict:
-    path = generate_tests(description)
+    path, doc = generate_tests(description)
     code, out = _run_cmd([sys.executable, "-m", "pytest", "--tb=short", str(path)])
     return {
         "path": str(path.relative_to(PROJECT_ROOT)),
+        "testcase_doc": str(doc.relative_to(PROJECT_ROOT)),
         "exit_code": code,
         "output": out,
     }
